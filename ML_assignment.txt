@@ -1,0 +1,376 @@
+from pathlib import Path
+#exploratory data analysis
+import pandas as pd
+import os
+from google.colab import files
+
+filename="bike_train.csv"
+print(os.getcwd())
+
+if not os.path.exists(filename):
+   upload = files.upload()
+   for filename,data in upload.items():
+     with open(filename,'wb') as f:
+       f.write(data)
+
+df = pd.read_csv(filename,parse_dates=['datetime'])
+
+dataset_size=df.shape
+
+missing_values = pd.DataFrame({
+    'dtypes' : df.dtypes,
+    'missing_count': df.isnull().sum()
+})
+
+def classify_column(col,series):
+
+       if pd.api.types.is_datetime64_any_dtype(col):
+          return 'DateTime'
+
+       elif pd.api.types.is_bool_dtype(col):
+          return 'Categorical-binary'
+
+
+       elif pd.api.types.is_numeric_dtype(col):
+
+          unique=series.dropna().unique()
+
+          if len(unique)==2:
+            return 'Categorical-Binary'
+
+          elif len(unique)<10 and pd.api.types.is_integer_dtype(col):
+            return 'Categorical-Ordinal'
+
+          elif pd.api.types.is_integer_dtype(col):
+            return 'Numerical-discrete' 
+
+          else:
+            return 'Numerical-Continuos'
+
+       elif pd.api.types.is_object_dtype(col) :
+          return 'Categorical'
+
+
+feature_types = df.apply(lambda x:classify_column(x.dtypes,x))
+
+print(dataset_size)
+print(missing_values)
+print(feature_types)
+from pathlib import Path
+#exploratory data analysis
+import pandas as pd
+import os
+from google.colab import files
+
+filename="bike_train.csv"
+print(os.getcwd())
+
+if not os.path.exists(filename):
+   upload = files.upload()
+   for filename,data in upload.items():
+     with open(filename,'wb') as f:
+       f.write(data)
+
+df = pd.read_csv(filename,parse_dates=['datetime'])
+
+dataset_size=df.shape
+
+missing_values = pd.DataFrame({
+    'dtypes' : df.dtypes,
+    'missing_count': df.isnull().sum()
+})
+
+def classify_column(col,series):
+
+       if pd.api.types.is_datetime64_any_dtype(col):
+          return 'DateTime'
+
+       elif pd.api.types.is_bool_dtype(col):
+          return 'Categorical-binary'
+
+
+       elif pd.api.types.is_numeric_dtype(col):
+
+          unique=series.dropna().unique()
+
+          if len(unique)==2:
+            return 'Categorical-Binary'
+
+          elif len(unique)<10 and pd.api.types.is_integer_dtype(col):
+            return 'Categorical-Ordinal'
+
+          elif pd.api.types.is_integer_dtype(col):
+            return 'Numerical-discrete' 
+
+          else:
+            return 'Numerical-Continuos'
+
+       elif pd.api.types.is_object_dtype(col) :
+          return 'Categorical'
+
+
+feature_types = df.apply(lambda x:classify_column(x.dtypes,x))
+
+print(dataset_size)
+print(missing_values)
+print(feature_types)
+
+
+#1.2
+#Visual Relationship between key features and count
+
+#1) below plot describes relationship between columns and target value(count)
+
+import matplotlib 
+import seaborn as sns
+
+df["datetime"] = pd.to_datetime(df["datetime"])
+df["hour"] = df["datetime"].dt.hour
+df["month"]  = df["datetime"].dt.month
+
+sns.scatterplot(x=df["temp"],y=df["count"])
+matplotlib.pyplot.title("temp vs count")
+matplotlib.pyplot.show()
+
+sns.scatterplot(x=df["hour"],y=df["count"])
+matplotlib.pyplot.title("hour vs count")
+matplotlib.pyplot.show()
+
+
+
+
+#1.3) 
+#which variable to be likely informative
+
+""" Below are the variables to be informative.
+
+1. Temp has impact on the target output as it has linear and non-linear reladtionship.
+2. Hour has impact in the target output. 0 -5AM less number of bike rental counts
+are there 6 AM to 5PM it is moderate and between 6 PM to 8PM again it is high count
+and after 8PM it is less count. 
+3. Humidity,Hour and working day also has impact on target output"""
+
+
+df["datetime"] = pd.to_datetime(df["datetime"])
+df["year"] = df["datetime"].dt.year
+df["hour"] = df["datetime"].dt.hour
+df["month"] = df["datetime"].dt.month
+df["weekday"] = df["datetime"].dt.weekday
+
+
+#encode categorial values
+#holiday  - 0,1
+#workingday - 0,1
+#weather - 1,4
+#season = 1,4
+
+df["season_label"]  = df["season"].map({1:"Summer",2:"Winter",3:"Autum",4:"Spring"})
+df["holiday_label"]  = df["holiday"].map({0:"Saturday",1:"Sunday"})
+df["workingday_label"]  = df["workingday"].map({0:"Monday",1:"Tuesday"})
+df["weather_label"]  = df["weather"].map({1:"Summer",2:"Winter",3:"Autum",4:"Spring"})
+
+# Polynomial transformation for non-linear trends
+df["temp2"]  = df["temp"]**2
+df["humidity2"] = df["humidity"]**0.5
+
+# Interaction term
+df["working_weather"]  = df["workingday"] * df["weather"]
+
+print(df["working_weather"])
+print(df["temp2"])
+print(df["humidity2"])
+
+#Q5
+
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression,Lasso,Ridge
+from sklearn.metrics import mean_squared_error, r2_score
+import numpy as np
+
+df["datetime"] = pd.to_datetime(df["datetime"])
+df["year"] = df["datetime"].dt.year
+df["hour"] = df["datetime"].dt.hour
+df["month"] = df["datetime"].dt.month
+df["weekday"] = df["datetime"].dt.weekday
+
+df["hour_sin"]  = np.sin(2 * np.pi * df["hour"]  / 24)
+df["hour_cos"]  = np.cos(2 * np.pi * df["hour"]  / 24)
+df["month_sin"] = np.sin(2 * np.pi * df["month"] / 12)
+df["month_cos"] = np.cos(2 * np.pi * df["month"] / 12)
+
+
+#RegressionModel
+features = ["hour_sin","hour_cos","month_sin","month_cos",
+            "holiday","season","workingday",
+            "weekday","month","weather","temp","humidity",
+            "windspeed"]
+
+target = "count"
+
+X= df[features]
+y= df[target]
+
+def rmsle(y_true,y_pred):
+  y_pred=np.maximum(0,y_pred)
+  return np.sqrt(np.mean((np.log1p(y_pred)-np.log1p(y_true))**2))
+
+X_train,X_val,y_train,y_val = train_test_split(X,y,test_size=0.2,random_state=42)
+
+y_train_log = np.log1p(y_train)
+
+model = LinearRegression()
+model.fit(X_train,y_train_log)
+
+y_pred_log  = model.predict(X_val)
+y_pred      = np.expm1(y_pred_log) 
+
+mse = mean_squared_error(y_val,y_pred)
+rmse = np.sqrt(mse)
+print(f"{round(rmse,2)}")
+
+r2 = r2_score(y_val,y_pred)
+
+rmsle_score = rmsle(y_val,y_pred)
+print(round(rmsle_score,2))
+
+#Q6
+
+#ploynomial features captures non-linear patterns
+#ridge reduces overfitting
+#lasso removes less important features
+
+from sklearn.preprocessing import PolynomialFeatures,StandardScaler
+from sklearn.linear_model import LinearRegression,Lasso,Ridge
+from sklearn.model_selection import cross_val_score
+
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_val_scaled   = scaler.transform(X_val)
+
+poly = PolynomialFeatures(degree=3, include_bias=False)
+X_train_poly= poly.fit_transform(X_train_scaled)
+X_valid_poly= poly.transform(X_val_scaled)
+
+y_train_log = np.log1p(y_train)
+
+#Ridge Regression
+
+ridge=Ridge(alpha=1.0)
+ridge.fit(X_train_poly,y_train_log)
+y_pred_ridge = np.expm1(ridge.predict(X_valid_poly))
+
+#Lasso Regression
+lasso=Lasso(alpha=0.01)
+lasso.fit(X_train_poly,y_train_log)
+y_pred_lasso = np.expm1(lasso.predict(X_valid_poly))
+
+print("Ridge RMSLE",rmsle(y_val,y_pred_ridge))
+print("Lasso RMSLE",rmsle(y_val,y_pred_lasso))
+
+y_log = np.log1p(y)
+
+# Scale + poly once
+X_scaled = scaler.fit_transform(X)
+X_poly   = poly.fit_transform(X_scaled)
+
+alphas = [0.01, 0.1, 1.0, 10.0, 50.0, 100.0]
+
+print("Ridge alpha tuning:")
+for a in alphas:
+    model = Ridge(alpha=a)
+    scores = cross_val_score(model, X_poly, y_log,
+                             cv=5, scoring='neg_mean_squared_error')
+    rmsle_cv = np.sqrt(-scores.mean())
+    print(f"  alpha={a:>6} → RMSLE ≈ {rmsle_cv:.4f}")
+
+print("\nLasso alpha tuning:")
+for a in [0.001, 0.005, 0.01, 0.05, 0.1]:
+    model = Lasso(alpha=a, max_iter=10000)
+    scores = cross_val_score(model, X_poly, y_log,
+                             cv=5, scoring='neg_mean_squared_error')
+    rmsle_cv = np.sqrt(-scores.mean())
+    print(f"  alpha={a:>5} → RMSLE ≈ {rmsle_cv:.4f}")
+
+
+
+
+#Q7) Summarize result in one table.
+results = pd.DataFrame({
+    'Model':['Linear Regression','Ridge Regression','Lasso Regression'],
+    'RMSLE': [rmsle(y_val,y_pred),rmsle(y_val,y_pred_ridge),
+            rmsle(y_val,y_pred_lasso)]
+
+})
+print(results)
+#Lower RMSLE means better performance.The best model is one with better RMSLE.
+
+#Q8) plot residual for best model
+
+#Residual = Actual value -predicated value
+
+residuals = y_val - y_pred_ridge
+matplotlib.pyplot.figure(figsize=(6,4))
+matplotlib.pyplot.scatter(y_pred_ridge,residuals)
+matplotlib.pyplot.axhline(y=0)
+matplotlib.pyplot.xlabel("Predicted Values")
+matplotlib.pyplot.ylabel("Residuals")
+matplotlib.pyplot.title("Residual Plot")
+matplotlib.pyplot.show()
+
+#Q9) why winning model performs better
+
+It captures non-linear relationship.
+It reduced overfitting
+It generalizes on unseen data.
+
+Q10) Why RMSLE penalises unde-predictions more than RMSE.
+
+RMSLE use logarithmis before calculating error.
+This compress large values and focuses more on relative differences.Therfore
+error becomes softer compared to RMSE.
+
+Q11) Trade off beteewn model simplicity and predictive power.
+
+Simple model: Linear regression
+
+Advantages:
+
+Easy to understand
+fast to train
+Less overfitting
+
+Disadvantages:
+Lower accuracy
+
+Complex Models:
+
+Polynomial + Ridge/lasso
+
+Advantages:
+Better accuracy
+Captures non-linear relationship.
+
+Disadvantages:
+Hard to interpret
+More computational expensive
+
+Q12) 
+
+Linear regression captures only linear relationship and it struggle to capture non-linear
+relationship.
+Bike demand changes throughtout the day
+Monring office hours - High demand
+Midnight -> low demand
+These patterns are non-linear and cyclic.
+
+#Generate submission.csv file
+
+output = pd.DataFrame({
+    "datetime": df.loc[X_val.index,"datetime"].values,
+    "actual_count":y_val.values,
+    "Count_Predicted": y_pred_ridge
+})
+
+output = output.sort_values("datetime").reset_index(drop=True)
+output.to_csv("Submission.csv",index=False)
+print(output.head(10))
